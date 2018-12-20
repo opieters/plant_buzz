@@ -3,6 +3,7 @@
 #include <Wire.h>
 #include "OneButton.h"
 #include "Adafruit_NeoPixel.h"
+#include "math.h"
 
 #define N_PLANTS 16
 #define N_HEALTH_PIXELS 5
@@ -67,6 +68,7 @@ void Plant::update_time(int duration){
 }
 
 Plant plants[N_PLANTS];
+int n_plants = 0;
 
 // a function to be executed periodically
 void minuteCounter() {
@@ -75,7 +77,7 @@ void minuteCounter() {
   }
 }
 
-int n_plants = 0;
+
 void add_plant(Plant p){
   plants[n_plants] = p;
   n_plants++;
@@ -211,9 +213,61 @@ void check_plants(){
   }
 }
 
+int loop_list_screen(String* options, int n_options){
+  int cursor_position = 0;
+  int cursor = 0;
+  
+  dwenguinoLCD.clear();
+  dwenguinoLCD.write(byte(0));
+  
+  do {
+    reset_click();
+    button_up.attachClick(click_up);
+    button_down.attachClick(click_down);
+    button_select.attachClick(click_center);
+
+    while(!button_clicked){
+      button_up.tick();
+      button_down.tick();
+      button_select.tick();
+    }
+    // update cursur position
+    if(last_pressed_button == BUTTON_UP){
+      cursor_position = 0;
+      cursor = max(cursor-1, 0);
+    }
+    if(last_pressed_button == BUTTON_DOWN){
+      cursor_position = 1;
+      cursor = min(cursor+1, n_options);
+    }
+
+    // update display
+    dwenguinoLCD.clear();
+    if(cursor_position == 0){
+      dwenguinoLCD.write(byte(0));
+      dwenguinoLCD.print(options[cursor]);
+      dwenguinoLCD.setCursor(0,2);
+      dwenguinoLCD.print(" ");
+      if(n_options > (cursor + 1)){
+        dwenguinoLCD.print(options[cursor+1]);
+      }
+    } else {
+      dwenguinoLCD.print(" ");
+      if( (cursor-1) > 0){
+        dwenguinoLCD.print(options[cursor-1]);
+      }
+      dwenguinoLCD.setCursor(0,2);
+      dwenguinoLCD.write(byte(0));
+      dwenguinoLCD.print(options[cursor]);
+    }
+  } while(last_pressed_button != BUTTON_CENTER);
+
+  return cursor;
+}
+
 void setup() {
     Serial.begin(9600);
-    timer.setInterval(1000*60, minuteCounter);
+    timer.setInterval(60000, minuteCounter);
     // add all of the plants over here
     add_plant(Plant("Test", 0, 0, {0, 0}));
     add_plant(Plant("Test", 0, 0, {0, 0}));
@@ -228,6 +282,18 @@ void setup() {
     water_strip.show();
 
     noTone(BUZZER);
+
+    byte arrow[8] = {
+      B00000,
+      B10001,
+      B00000,
+      B00000,
+      B10001,
+      B01110,
+      B00000,
+    };
+
+    dwenguinoLCD.createChar(0, arrow);
 }
 
 void loop() {
