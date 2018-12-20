@@ -163,6 +163,27 @@ void start_buzzer(){
   tone(BUZZER, 1000, 10*1000);
 }
 
+void display_leds_proto(Adafruit_NeoPixel strip, int n_pixels, int amount, int max_amount, uint32_t base_colour){
+  long int max_level = n_pixels * 255;
+  long int level = (long int) (1.0 * amount * max_level / (1.0*max_amount) + 0.5);
+
+  int brightness;
+  for(int i = 0; i < N_WATER_PIXELS; i++){
+    brightness = (level >> (i*8)) & 0xFF;
+    strip.setPixelColor(i, base_colour);
+    strip.setBrightness(brightness);
+  }
+  strip.show();
+}
+
+void display_water_amount(int amount){
+  display_leds_proto(water_strip, N_WATER_PIXELS, amount, 100, water_strip.Color(0,0,255,0));
+}
+
+void display_health_status(int amount){
+  display_leds_proto(health_strip, N_HEALTH_PIXELS, amount, 100, water_strip.Color(255,255,0,0));
+}
+
 void check_plants(){
   long int lowest_time = 0xFFFFFF;
   int plant_index = -1;
