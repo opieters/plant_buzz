@@ -1,0 +1,6 @@
+{
+    "terminal.integrated.env.linux": {
+        "PATH": "/home/opieters/.platformio/penv/bin:/home/opieters/.platformio/penv:/home/opieters/.local/bin:/home/opieters/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/usr/lib/jvm/java-10-oracle/bin:/usr/lib/jvm/java-10-oracle/db/bin:/opt/microchip/xc16/v1.35/bin:/usr/lib/jvm/java-10-oracle/bin:/usr/lib/jvm/java-10-oracle/db/bin:/opt/microchip/xc16/v1.35/bin:/opt/microchip/xc16/v1.35/bin",
+        "PLATFORMIO_CALLER": "vscode"
+    }
+}
