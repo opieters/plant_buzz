@@ -137,6 +137,7 @@ int choice_dialog_screen(String message, String option1="OK", String option2="Ca
   while(!button_clicked){
     button_left.tick();
     button_right.tick();
+    timer.run();
   }
 
   if (last_pressed_button == BUTTON_LEFT){
@@ -161,6 +162,7 @@ int notification_dialogue_screen(String message, String option1="OK"){
 
   while(!button_clicked){
     button_select.tick();
+    timer.run();
   }
   
   return 0;
@@ -230,6 +232,7 @@ int loop_list_screen(String* options, int n_options){
       button_up.tick();
       button_down.tick();
       button_select.tick();
+      timer.run();
     }
     // update cursur position
     if(last_pressed_button == BUTTON_UP){
@@ -294,8 +297,38 @@ void setup() {
     };
 
     dwenguinoLCD.createChar(0, arrow);
+
+    dwenguinoLCD.clear();
+    dwenguinoLCD.print("Press C for");
+    dwenguinoLCD.print("menu.");
+
+    reset_click();
+    button_select.attachClick(click_center);
+}
+
+String main_menu_options[] = {String("Summary"), String("View plants"), String("Add plant"), String("Edit plant"), String("About")};
+int n_main_menu_options = 5;
+
+void main_menu(){
+  int menu_item = loop_list_screen(main_menu_options, n_main_menu_options);
+
+  switch(menu_item){
+    case 0:
+    case 1:
+    case 2:
+    case 3:
+    case 4:
+    default:
+      break;
+  }
 }
 
 void loop() {
     timer.run();
+
+    button_select.tick();
+
+    if(button_clicked){
+      main_menu();
+    }
 }
