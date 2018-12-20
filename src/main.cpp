@@ -37,6 +37,7 @@ class Plant{
     Plant(String name, long int watering_period, int water_amount, Location location);
     long int getWateringTime();
     String getName();
+    void update_time(int duration);
 };
 
 Plant::Plant(){
@@ -61,12 +62,17 @@ String Plant::getName(){
   return name;
 }
 
+void Plant::update_time(int duration){
+  this->watering_time += duration;
+}
+
 Plant plants[N_PLANTS];
 
 // a function to be executed periodically
 void minuteCounter() {
-    Serial.print("Uptime (s): ");
-    Serial.println(millis() / 1000);
+  for(int i = 0; i < n_plants; i++){
+    plants[i].update_time(-1);
+  }
 }
 
 int n_plants = 0;
