@@ -269,6 +269,8 @@ int loop_list_screen(String* options, int n_options){
 }
 
 void setup() {
+    initDwenguino();
+
     Serial.begin(9600);
     timer.setInterval(60000, minuteCounter);
     // add all of the plants over here
@@ -309,15 +311,72 @@ void setup() {
 String main_menu_options[] = {String("Summary"), String("View plants"), String("Add plant"), String("Edit plant"), String("About")};
 int n_main_menu_options = 5;
 
+void display_long_text(String text){
+  int line1_start = 0, line1_stop = 0;
+  int line2_start = 0, line2_stop = 0;
+
+  int np = 0, n = 0;
+  while((n - line1_start) < 16){
+    np = n;
+    n = text.indexOf(" ", np+1);
+  }
+  line1_stop = np;
+
+  np = 0;
+  n = 0;
+  while((n - line2_start) < 16){
+    np = n;
+    n = text.indexOf(" ", np+1);
+  }
+  line1_stop = np;
+}
+
+String summary_menu_options[] = {String("Plants that need care soon"), String(""), String(""), String("")};
+int n_summary_menu_option = 4;
+
+void summary_menu(){
+  int menu_item = loop_list_screen(summary_menu_options, n_summary_menu_option);
+
+  switch(menu_item){
+    case 0:
+      summary_menu();
+      break;
+    default:
+      
+      break;
+  }
+}
+
+void view_plant_menu(){
+
+}
+
+void add_plant_menu() {
+
+}
+
+void edit_plant_menu(){
+
+}
+
+void about_menu(){
+  display_long_text("Plant Buzz. Plant watering system designed for the AIRO office by Olivier Pieters. https://github.com/opieters/plant_buzz");
+}
+
 void main_menu(){
   int menu_item = loop_list_screen(main_menu_options, n_main_menu_options);
 
   switch(menu_item){
     case 0:
+      summary_menu();
     case 1:
+      view_plant_menu();
     case 2:
+      add_plant_menu();
     case 3:
+      edit_plant_menu();
     case 4:
+      about_menu();
     default:
       break;
   }
