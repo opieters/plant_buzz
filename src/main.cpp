@@ -4,6 +4,7 @@
 #include "OneButton.h"
 #include "Adafruit_NeoPixel.h"
 #include "math.h"
+#include "EEPROM.h"
 
 #define N_PLANTS 16
 #define N_HEALTH_PIXELS 5
@@ -11,8 +12,14 @@
 #define HEALTH_PIXEL_PIN 20
 #define WATER_PIXEL_PIN 20
 
+#define ROM_PLANT_DATA_START 1
+
 // the timer object
 SimpleTimer timer;
+
+// EEPROM start address
+uint16_t rom_address = ROM_PLANT_DATA_START;
+
 
 // button objects
 OneButton button_up(SW_N, false);
@@ -24,7 +31,16 @@ OneButton button_right(SW_E, false);
 Adafruit_NeoPixel health_strip = Adafruit_NeoPixel(N_HEALTH_PIXELS, HEALTH_PIXEL_PIN, NEO_GRBW + NEO_KHZ800);
 Adafruit_NeoPixel water_strip = Adafruit_NeoPixel(N_WATER_PIXELS, WATER_PIXEL_PIN, NEO_GRBW + NEO_KHZ800);
 
-typedef struct {int x; int y;} Location; 
+typedef struct {short x; short y;} Location; 
+
+typedef struct plant_struct {
+  char name[16];
+  char latin_name[16];
+  long int watering_period;
+  long int watering_time;
+  short water_amount;
+  Location location;
+} plant_t;
 
 class Plant{
   private: 
@@ -40,6 +56,29 @@ class Plant{
     String getName();
     void update_time(int duration);
 };
+
+void save_plant(plant_t* plant, short plant_index){
+  int address = ROM_PLANT_DATA_START + plant_index*sizeof(plant_t);
+  EEPROM.put(address, *plant); // TODO: use struct here! 
+}
+
+void load_plant(plant_t* plant, short plant_index){
+  int address = ROM_PLANT_DATA_START + plant_index*sizeof(plant_t);
+  EEPROM.get(address, *plant);
+}
+
+void init_plant(plant_t* plant){
+  int i;
+  for(i = 0; i < sizeof(plant->name)/sizeof(plant->name[0]); i++){
+    plant->name[i] = NULL;
+  }
+  for(i = 0; i < sizeof(plant->latin_name)/sizeof(plant->latin_name[0]); i++){
+    plant->latin_name[i] = NULL;
+  }
+  plant->watering_period = 0;
+  plant->watering_time = 0;
+  plant->water_amount = 0;
+}
 
 Plant::Plant(){
   this->name = "";
