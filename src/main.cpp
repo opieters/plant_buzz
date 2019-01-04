@@ -4,13 +4,14 @@
 #include "OneButton.h"
 #include "Adafruit_NeoPixel.h"
 #include "math.h"
-#include "EEPROM.h"
+#include <EEPROM.h>
+#include <stdint.h>
 
 #define N_PLANTS 16
 #define N_HEALTH_PIXELS 5
 #define N_WATER_PIXELS 5
-#define HEALTH_PIXEL_PIN 20
-#define WATER_PIXEL_PIN 20
+#define HEALTH_PIXEL_PIN 23
+#define WATER_PIXEL_PIN 22
 
 #define ROM_PLANT_DATA_START 1
 
@@ -22,11 +23,11 @@ uint16_t rom_address = ROM_PLANT_DATA_START;
 
 
 // button objects
-OneButton button_up(SW_N, false);
-OneButton button_down(SW_S, false);
-OneButton button_select(SW_C, false);
-OneButton button_left(SW_W, false);
-OneButton button_right(SW_E, false);
+OneButton button_up(SW_N, true);
+OneButton button_down(SW_S, true);
+OneButton button_select(SW_C, true);
+OneButton button_left(SW_W, true);
+OneButton button_right(SW_E, true);
 
 Adafruit_NeoPixel health_strip = Adafruit_NeoPixel(N_HEALTH_PIXELS, HEALTH_PIXEL_PIN, NEO_GRBW + NEO_KHZ800);
 Adafruit_NeoPixel water_strip = Adafruit_NeoPixel(N_WATER_PIXELS, WATER_PIXEL_PIN, NEO_GRBW + NEO_KHZ800);
@@ -42,29 +43,37 @@ typedef struct plant_struct {
   Location location;
 } plant_t;
 
-class Plant{
-  private: 
-    String name;
-    long int watering_period;
-    long int watering_time;
-    int water_amount;
-    Location location;
-  public:
-    Plant();
-    Plant(String name, long int watering_period, int water_amount, Location location);
-    long int getWateringTime();
-    String getName();
-    void update_time(int duration);
-};
+plant_t plants[N_PLANTS];
+int n_plants = 0;
+
+template< typename T > T& rom_get( int idx, T &t ){
+    uint8_t *ptr = (uint8_t*) &t;
+    for( int count = sizeof(T) ; count > 0 ; count-- ){  
+      *ptr = EEPROM.read(idx);
+      ptr++;
+      idx++;
+    }
+    return t;
+}
+
+template< typename T > const T& rom_put( int idx, const T &t ){
+    const uint8_t *ptr = (const uint8_t*) &t;
+    for( int count = sizeof(T) ; count ; count-- ){
+      EEPROM.write(idx, *ptr);
+      ptr++;
+      idx++;
+    }  
+    return t;
+}
 
 void save_plant(plant_t* plant, short plant_index){
   int address = ROM_PLANT_DATA_START + plant_index*sizeof(plant_t);
-  EEPROM.put(address, *plant); // TODO: use struct here! 
+  rom_put(address, *plant);
 }
 
 void load_plant(plant_t* plant, short plant_index){
   int address = ROM_PLANT_DATA_START + plant_index*sizeof(plant_t);
-  EEPROM.get(address, *plant);
+  rom_get(address, *plant);
 }
 
 void init_plant(plant_t* plant){
@@ -80,46 +89,11 @@ void init_plant(plant_t* plant){
   plant->water_amount = 0;
 }
 
-Plant::Plant(){
-  this->name = "";
-  this->watering_period = 0;
-  this->water_amount = 0;
-  this->location = {0, 0};
-}
-
-Plant::Plant(String name, long int watering_period, int water_amount, Location location){
-  this->name = name;
-  this->watering_period = watering_period;
-  this->water_amount = water_amount;
-  this->location = location;
-}
-
-long int Plant::getWateringTime(){
-  return watering_time;
-}
-
-String Plant::getName(){
-  return name;
-}
-
-void Plant::update_time(int duration){
-  this->watering_time += duration;
-}
-
-Plant plants[N_PLANTS];
-int n_plants = 0;
-
 // a function to be executed periodically
 void minuteCounter() {
   for(int i = 0; i < n_plants; i++){
-    plants[i].update_time(-1);
+    plants[i].watering_time -= -1;
   }
-}
-
-
-void add_plant(Plant p){
-  plants[n_plants] = p;
-  n_plants++;
 }
 
 bool button_clicked = false;
@@ -237,14 +211,14 @@ void check_plants(){
   long int lowest_time = 0xFFFFFF;
   int plant_index = -1;
   for(int i = 0; i < n_plants; i++){
-    if(plants[i].getWateringTime() < lowest_time){
-      lowest_time = plants[i].getWateringTime();
+    if(plants[i].watering_time < lowest_time){
+      lowest_time = plants[i].watering_time;
       plant_index = i;
     } 
   }
   if(plant_index != -1){
       dwenguinoLCD.clear();
-      dwenguinoLCD.print(plants[plant_index].getName());
+      dwenguinoLCD.print(plants[plant_index].name);
       dwenguinoLCD.setCursor(0, 2);
       dwenguinoLCD.print("needs water!");
       start_buzzer();
@@ -255,7 +229,6 @@ void check_plants(){
 }
 
 int loop_list_screen(String* options, int n_options){
-  int cursor_position = 0;
   int cursor = 0;
   
   dwenguinoLCD.clear();
@@ -267,6 +240,22 @@ int loop_list_screen(String* options, int n_options){
     button_down.attachClick(click_down);
     button_select.attachClick(click_center);
 
+    // update display
+    dwenguinoLCD.clear();
+    if (cursor == (n_options-1)){
+      dwenguinoLCD.print(" ");
+      dwenguinoLCD.print(options[cursor-1]);
+      dwenguinoLCD.setCursor(0,2);
+      dwenguinoLCD.write(byte(0));
+      dwenguinoLCD.print(options[cursor]);
+    }  else {
+      dwenguinoLCD.write(byte(0));
+      dwenguinoLCD.print(options[cursor]);
+      dwenguinoLCD.setCursor(0,2);
+      dwenguinoLCD.print(" ");
+      dwenguinoLCD.print(options[cursor+1]);
+    }
+
     while(!button_clicked){
       button_up.tick();
       button_down.tick();
@@ -275,32 +264,47 @@ int loop_list_screen(String* options, int n_options){
     }
     // update cursur position
     if(last_pressed_button == BUTTON_UP){
-      cursor_position = 0;
       cursor = max(cursor-1, 0);
     }
     if(last_pressed_button == BUTTON_DOWN){
-      cursor_position = 1;
-      cursor = min(cursor+1, n_options);
+      cursor = min(cursor+1, n_options-1);
     }
+  } while(last_pressed_button != BUTTON_CENTER);
+
+  return cursor;
+}
+
+int loop_list_message_screen(String message, String* options, int n_options){
+  int cursor = 0;
+  
+  dwenguinoLCD.clear();
+  dwenguinoLCD.write(byte(0));
+  
+  do {
+    reset_click();
+    button_up.attachClick(click_up);
+    button_down.attachClick(click_down);
+    button_select.attachClick(click_center);
 
     // update display
     dwenguinoLCD.clear();
-    if(cursor_position == 0){
-      dwenguinoLCD.write(byte(0));
-      dwenguinoLCD.print(options[cursor]);
-      dwenguinoLCD.setCursor(0,2);
-      dwenguinoLCD.print(" ");
-      if(n_options > (cursor + 1)){
-        dwenguinoLCD.print(options[cursor+1]);
-      }
-    } else {
-      dwenguinoLCD.print(" ");
-      if( (cursor-1) > 0){
-        dwenguinoLCD.print(options[cursor-1]);
-      }
-      dwenguinoLCD.setCursor(0,2);
-      dwenguinoLCD.write(byte(0));
-      dwenguinoLCD.print(options[cursor]);
+    dwenguinoLCD.print(message);
+    dwenguinoLCD.setCursor(0,2);
+    dwenguinoLCD.print(byte(0));
+    dwenguinoLCD.print(options[cursor+1]);
+
+    while(!button_clicked){
+      button_up.tick();
+      button_down.tick();
+      button_select.tick();
+      timer.run();
+    }
+    // update cursur position
+    if(last_pressed_button == BUTTON_UP){
+      cursor = max(cursor-1, 0);
+    }
+    if(last_pressed_button == BUTTON_DOWN){
+      cursor = min(cursor+1, n_options-1);
     }
   } while(last_pressed_button != BUTTON_CENTER);
 
@@ -313,10 +317,6 @@ void setup() {
     Serial.begin(9600);
     timer.setInterval(60000, minuteCounter);
     // add all of the plants over here
-    add_plant(Plant("Test", 0, 0, {0, 0}));
-    add_plant(Plant("Test", 0, 0, {0, 0}));
-    add_plant(Plant("Test", 0, 0, {0, 0}));
-    add_plant(Plant("Test", 0, 0, {0, 0}));
 
     dwenguinoLCD.clear();
 
@@ -341,14 +341,15 @@ void setup() {
 
     dwenguinoLCD.clear();
     dwenguinoLCD.print("Press C for");
+    dwenguinoLCD.setCursor(0, 2);
     dwenguinoLCD.print("menu.");
 
     reset_click();
     button_select.attachClick(click_center);
 }
 
-String main_menu_options[] = {String("Summary"), String("View plants"), String("Add plant"), String("Edit plant"), String("About")};
-int n_main_menu_options = 5;
+String main_menu_options[] = {String("Plant care"), String("Summary"), String("View plants"), String("Add plant"), String("Edit plant"), String("About")};
+int n_main_menu_options = 6;
 
 void display_long_text(String text){
   int line1_start = 0, line1_stop = 0;
@@ -370,8 +371,20 @@ void display_long_text(String text){
   line1_stop = np;
 }
 
-String summary_menu_options[] = {String("Plants that need care soon"), String(""), String(""), String("")};
+String summary_menu_options[] = {String(""), String("Compl. overview"), String("Back"), String("")};
 int n_summary_menu_option = 4;
+
+void plant_care_menu(){
+ // TODO: list all plants that need care here
+  String plant_care_list[] = {String("back")};
+  int plant_idx = loop_list_message_screen("Care needed for:", plant_care_list, sizeof(plant_care_list) /sizeof(plant_care_list[0]));
+  switch(plant_idx){
+    case 1:
+      // TODO: display plant status
+    default:
+      return;
+  }
+}
 
 void summary_menu(){
   int menu_item = loop_list_screen(summary_menu_options, n_summary_menu_option);
@@ -390,8 +403,110 @@ void view_plant_menu(){
 
 }
 
-void add_plant_menu() {
+void request_text(String message, int max_length, char* user_text){
+  int cursor = 0;
+  dwenguinoLCD.cursor();
+  do {
+    reset_click();
+    button_up.attachClick(click_up);
+    button_down.attachClick(click_down);
+    button_left.attachClick(click_left);
+    button_right.attachClick(click_right);
+    button_select.attachClick(click_center);
 
+    // update display
+    dwenguinoLCD.clear();
+    dwenguinoLCD.print(message);
+    dwenguinoLCD.setCursor(0, 2);
+    dwenguinoLCD.print(user_text);
+
+    while(!button_clicked){
+      button_up.tick();
+      button_down.tick();
+      button_left.tick();
+      button_right.tick();
+      button_select.tick();
+      timer.run();
+    }
+
+    switch(last_pressed_button){
+      case BUTTON_UP:
+        user_text[cursor] = max(user_text[cursor]+1, 'A');
+        break;
+      case BUTTON_DOWN:
+        user_text[cursor] = min(user_text[cursor]-1, 'z');
+        break;
+      case BUTTON_LEFT:
+        cursor = max(cursor-1, 0);
+        break;
+      case BUTTON_RIGHT:
+        cursor = min(cursor+1, 15);
+        break;
+      default:
+        break;
+      }
+  } while(last_pressed_button != BUTTON_CENTER);
+}
+
+long int request_number(String message, long int number, bool only_positive=false){
+  int step = 0;
+  dwenguinoLCD.cursor();
+  do {
+    reset_click();
+    button_up.attachClick(click_up);
+    button_down.attachClick(click_down);
+    button_left.attachClick(click_left);
+    button_right.attachClick(click_right);
+    button_select.attachClick(click_center);
+
+    // update display
+    dwenguinoLCD.clear();
+    dwenguinoLCD.print(message);
+    dwenguinoLCD.setCursor(0, 2);
+    dwenguinoLCD.print(number);
+
+    while(!button_clicked){
+      button_up.tick();
+      button_down.tick();
+      button_left.tick();
+      button_right.tick();
+      button_select.tick();
+      timer.run();
+    }
+
+    switch(last_pressed_button){
+      case BUTTON_UP:
+        number = number + step;
+        break;
+      case BUTTON_DOWN:
+        if(only_positive){
+          number = max(number - step, 0);
+        } else {
+          number = number - step;
+        }
+        break;
+      case BUTTON_LEFT:
+        step = max(step / 10, 1);
+        break;
+      case BUTTON_RIGHT:
+        step = step * 10;
+        break;
+      default:
+        break;
+      }
+  } while(last_pressed_button != BUTTON_CENTER);
+  return number;
+}
+
+#define MAX_PLANT_S_LENGTH 16
+void add_plant_menu() {
+  request_text("Plant name:", MAX_PLANT_S_LENGTH, plants[n_plants].name);
+  request_text("Latin name:", MAX_PLANT_S_LENGTH, plants[n_plants].latin_name);
+  plants[n_plants].water_amount = (short) request_number("Amount of water:", 1);
+  plants[n_plants].watering_period = request_number("Watering period (hrs):", 24);
+  plants[n_plants].location.x = (short) request_number("X location:", 0);
+  plants[n_plants].location.y = (short) request_number("X location:", 0);
+  n_plants++;
 }
 
 void edit_plant_menu(){
@@ -407,14 +522,16 @@ void main_menu(){
 
   switch(menu_item){
     case 0:
-      summary_menu();
+      plant_care_menu();
     case 1:
-      view_plant_menu();
+      summary_menu();
     case 2:
-      add_plant_menu();
+      view_plant_menu();
     case 3:
-      edit_plant_menu();
+      add_plant_menu();
     case 4:
+      edit_plant_menu();
+    case 5:
       about_menu();
     default:
       break;
