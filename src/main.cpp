@@ -446,11 +446,13 @@ void request_text(String message, int max_length, char* user_text){
         break;
       }
   } while(last_pressed_button != BUTTON_CENTER);
+
+  dwenguinoLCD.noCursor();
 }
 
 long int request_number(String message, long int number, bool only_positive=false){
-  int step = 0;
-  dwenguinoLCD.cursor();
+  int step = 1;
+
   do {
     reset_click();
     button_up.attachClick(click_up);
@@ -485,10 +487,10 @@ long int request_number(String message, long int number, bool only_positive=fals
           number = number - step;
         }
         break;
-      case BUTTON_LEFT:
+      case BUTTON_RIGHT:
         step = max(step / 10, 1);
         break;
-      case BUTTON_RIGHT:
+      case BUTTON_LEFT:
         step = step * 10;
         break;
       default:
