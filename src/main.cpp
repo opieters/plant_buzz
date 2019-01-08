@@ -43,6 +43,11 @@ typedef struct plant_struct {
   Location location;
 } plant_t;
 
+typedef struct {
+  const char* text;
+  const void (*callback) (void);
+} menu_item_t;
+
 plant_t plants[N_PLANTS];
 int n_plants = 0;
 
@@ -228,7 +233,7 @@ void check_plants(){
   }
 }
 
-int loop_list_screen(String* options, int n_options){
+int loop_list_screen(menu_item_t* options, int n_options){
   int cursor = 0;
   
   dwenguinoLCD.clear();
@@ -244,16 +249,16 @@ int loop_list_screen(String* options, int n_options){
     dwenguinoLCD.clear();
     if (cursor == (n_options-1)){
       dwenguinoLCD.print(" ");
-      dwenguinoLCD.print(options[cursor-1]);
+      dwenguinoLCD.print(options[cursor-1].text);
       dwenguinoLCD.setCursor(0,2);
       dwenguinoLCD.write(byte(0));
-      dwenguinoLCD.print(options[cursor]);
+      dwenguinoLCD.print(options[cursor].text);
     }  else {
       dwenguinoLCD.write(byte(0));
-      dwenguinoLCD.print(options[cursor]);
+      dwenguinoLCD.print(options[cursor].text);
       dwenguinoLCD.setCursor(0,2);
       dwenguinoLCD.print(" ");
-      dwenguinoLCD.print(options[cursor+1]);
+      dwenguinoLCD.print(options[cursor+1].text);
     }
 
     while(!button_clicked){
@@ -346,9 +351,57 @@ void setup() {
 
     reset_click();
     button_select.attachClick(click_center);
+
+    strncpy(plants[n_plants].latin_name, "Ficus Elastica Abidjan", 16);
+    strncpy(plants[n_plants].name, "Alayne", 16);
+    plants[n_plants].watering_period = 7;
+    plants[n_plants].water_amount = 3;
+    plants[n_plants].location = {0, 0};
+    plants[n_plants].watering_time = 0;
+    n_plants++;
+
+    strncpy(plants[n_plants].latin_name, "Pachira Aquatica", 16);
+    strncpy(plants[n_plants].name, "Quaith", 16);
+    plants[n_plants].watering_period = 7;
+    plants[n_plants].water_amount = 1;
+    plants[n_plants].location = {0, 0};
+    plants[n_plants].watering_time = 0;
+    n_plants++;
+
+    strncpy(plants[n_plants].latin_name, "Clusia Rosea Princess", 16);
+    strncpy(plants[n_plants].name, "Daemon", 16);
+    plants[n_plants].watering_period = 7;
+    plants[n_plants].water_amount = 1;
+    plants[n_plants].location = {0, 0};
+    plants[n_plants].watering_time = 0;
+    n_plants++;
+
+    strncpy(plants[n_plants].latin_name, "Kentia Howea Forsteriana", 16);
+    strncpy(plants[n_plants].name, "Egg", 16);
+    plants[n_plants].watering_period = 3;
+    plants[n_plants].water_amount = 3;
+    plants[n_plants].location = {0, 0};
+    plants[n_plants].watering_time = 0;
+    n_plants++;
+
 }
 
-String main_menu_options[] = {String("Plant care"), String("Summary"), String("View plants"), String("Add plant"), String("Edit plant"), String("About")};
+const menu_item_t mm_plant_care = {.text = "Plant care", .callback = NULL};
+const menu_item_t mm_view_plants = {.text = "Summary", .callback = NULL};
+const menu_item_t mm_add_plant = {.text = "View plants", .callback = NULL};
+const menu_item_t mm_view_plant = {.text = "Add plant", .callback = NULL};
+const menu_item_t mm_edit_plant = {.text = "Edit plant", .callback = NULL};
+const menu_item_t mm_about = {.text = "About", .callback = NULL};
+
+const menu_item_t main_menu_options[] = {
+  mm_plant_care,
+  mm_view_plants,
+  mm_add_plant,
+  mm_view_plant,
+  mm_edit_plant,
+  mm_about
+};
+
 int n_main_menu_options = 6;
 
 void display_long_text(String text){
@@ -387,7 +440,7 @@ void plant_care_menu(){
 }
 
 void summary_menu(){
-  int menu_item = loop_list_screen(summary_menu_options, n_summary_menu_option);
+  int menu_item = 00;//loop_list_screen(summary_menu_options, n_summary_menu_option);
 
   switch(menu_item){
     case 0:
@@ -399,8 +452,54 @@ void summary_menu(){
   }
 }
 
-void view_plant_menu(){
+int select_plant_screen(){
+  int cursor = 0;
+  
+  dwenguinoLCD.clear();
+  dwenguinoLCD.write(byte(0));
+  
+  do {
+    reset_click();
+    button_up.attachClick(click_up);
+    button_down.attachClick(click_down);
+    button_select.attachClick(click_center);
 
+    // update display
+    dwenguinoLCD.clear();
+    if (cursor == (n_plants-1)){
+      dwenguinoLCD.print(" ");
+      dwenguinoLCD.print(plants[cursor-1].name);
+      dwenguinoLCD.setCursor(0,2);
+      dwenguinoLCD.write(byte(0));
+      dwenguinoLCD.print(plants[cursor].name);
+    }  else {
+      dwenguinoLCD.write(byte(0));
+      dwenguinoLCD.print(plants[cursor].name);
+      dwenguinoLCD.setCursor(0,2);
+      dwenguinoLCD.print(" ");
+      dwenguinoLCD.print(plants[cursor+1].name);
+    }
+
+    while(!button_clicked){
+      button_up.tick();
+      button_down.tick();
+      button_select.tick();
+      timer.run();
+    }
+    // update cursur position
+    if(last_pressed_button == BUTTON_UP){
+      cursor = max(cursor-1, 0);
+    }
+    if(last_pressed_button == BUTTON_DOWN){
+      cursor = min(cursor+1, n_plants-1);
+    }
+  } while(last_pressed_button != BUTTON_CENTER);
+
+  return cursor;
+}
+
+void view_plant_menu(){
+  
 }
 
 void request_text(String message, int max_length, char* user_text){
@@ -419,6 +518,7 @@ void request_text(String message, int max_length, char* user_text){
     dwenguinoLCD.print(message);
     dwenguinoLCD.setCursor(0, 2);
     dwenguinoLCD.print(user_text);
+    dwenguinoLCD.setCursor(cursor, 2);
 
     while(!button_clicked){
       button_up.tick();
@@ -450,7 +550,7 @@ void request_text(String message, int max_length, char* user_text){
   dwenguinoLCD.noCursor();
 }
 
-long int request_number(String message, long int number, bool only_positive=false){
+long int request_number(String message, long int default_number, long int min_number, long int max_number){
   int step = 1;
 
   do {
@@ -465,7 +565,7 @@ long int request_number(String message, long int number, bool only_positive=fals
     dwenguinoLCD.clear();
     dwenguinoLCD.print(message);
     dwenguinoLCD.setCursor(0, 2);
-    dwenguinoLCD.print(number);
+    dwenguinoLCD.print(default_number);
 
     while(!button_clicked){
       button_up.tick();
@@ -478,41 +578,48 @@ long int request_number(String message, long int number, bool only_positive=fals
 
     switch(last_pressed_button){
       case BUTTON_UP:
-        number = number + step;
+        default_number = min(default_number + step, max_number);
         break;
       case BUTTON_DOWN:
-        if(only_positive){
-          number = max(number - step, 0);
-        } else {
-          number = number - step;
-        }
-        break;
-      case BUTTON_RIGHT:
-        step = max(step / 10, 1);
+        default_number = max(default_number - step, min_number);
         break;
       case BUTTON_LEFT:
+        step = max(step / 10, 1);
+        break;
+      case BUTTON_RIGHT:
         step = step * 10;
         break;
       default:
         break;
       }
   } while(last_pressed_button != BUTTON_CENTER);
-  return number;
+  return default_number;
 }
 
 #define MAX_PLANT_S_LENGTH 16
-void add_plant_menu() {
-  request_text("Plant name:", MAX_PLANT_S_LENGTH, plants[n_plants].name);
-  request_text("Latin name:", MAX_PLANT_S_LENGTH, plants[n_plants].latin_name);
-  plants[n_plants].water_amount = (short) request_number("Amount of water:", 1);
-  plants[n_plants].watering_period = request_number("Watering period (hrs):", 24);
-  plants[n_plants].location.x = (short) request_number("X location:", 0);
-  plants[n_plants].location.y = (short) request_number("X location:", 0);
-  n_plants++;
+void add_plant_menu(const int plant_idx = -1) {
+  plant_t* plant;
+
+  if(plant_idx == -1){
+    plant = &plants[n_plants];
+  } else {
+    plant = &plants[plant_idx];
+  }
+
+  request_text("Plant name:", MAX_PLANT_S_LENGTH, plant->name);
+  request_text("Latin name:", MAX_PLANT_S_LENGTH, plant->latin_name);
+  plant->water_amount = (short) request_number("Amount of water:", 1, 1, 5);
+  plant->watering_period = request_number("Watering period (hrs):", 24, 1, 31*24*12);
+  plant->location.x = (short) request_number("X location:", 0, 0, 8);
+  plant->location.y = (short) request_number("Y location:", 0, 0, 8);
+
+  if(plant_idx == -1){
+      n_plants++;
+  }
 }
 
 void edit_plant_menu(){
-
+  int selected_plant = select_plant_screen();
 }
 
 void about_menu(){
@@ -541,11 +648,5 @@ void main_menu(){
 }
 
 void loop() {
-    timer.run();
-
-    button_select.tick();
-
-    if(button_clicked){
-      main_menu();
-    }
+  main_menu();
 }
