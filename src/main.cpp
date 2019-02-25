@@ -1,123 +1,190 @@
-#include "Dwenguino.h"
-#include "SimpleTimer.h"
-#include <Wire.h>
-#include "OneButton.h"
+#include <Arduino.h>
+#include <Dwenguino.h>
 #include "Adafruit_NeoPixel.h"
-#include "math.h"
-#include <EEPROM.h>
-#include <stdint.h>
 
-#include "common/common.h"
-#include "ui/ui.h"
-#include "user/user.h"
-#include "plant/plant.h"
-#include "menu/menu.h"
-#include "actuator/actuator.h"
+#define DISPLAY_LENGTH 16
+#define STRIP_PIN 35
+#define N_PIXELS 5
 
-#define N_PLANTS 16
+int idx, data_byte;
+char read_char;
+int message_read_status = -1;
+short notification_type = 0;
+bool buzzer_on;
+int plant_id;
 
+char name[DISPLAY_LENGTH+1];
+String message;
+long int water_amount = 0;
+unsigned long notification_update_time;
 
-
-
-
-// EEPROM start address
-uint16_t rom_address = ROM_PLANT_DATA_START;
-
-
+Adafruit_NeoPixel water_strip(N_PIXELS, STRIP_PIN, NEO_KHZ800 + NEO_BGRW);
+Adafruit_NeoPixel notification_strip(N_PIXELS, STRIP_PIN, NEO_KHZ800 + NEO_BGRW);
 
 
+void setup(void){
+    Serial.begin(9600);
 
-
-
-plant_t plants[N_PLANTS];
-
-int n_users = 0;
-
-
-// a function to be executed periodically
-void minuteCounter() {
-  for(int i = 0; i < n_plants; i++){
-    //plants[i].watering_time -= -1;
-  }
-}
-
-
-void check_plants(){
-  long int lowest_time = 0xFFFFFF;
-  int plant_index = -1;
-  for(int i = 0; i < n_plants; i++){
-    /*if(plants[i].watering_time < lowest_time){
-      lowest_time = plants[i].watering_time;
-      plant_index = i;
-    } */
-  }
-  if(plant_index != -1){
-      dwenguinoLCD.clear();
-      dwenguinoLCD.print(plants[plant_index].name);
-      dwenguinoLCD.setCursor(0, 2);
-      dwenguinoLCD.print("needs water!");
-      start_buzzer();
-  } else {
-      dwenguinoLCD.clear();
-      dwenguinoLCD.print("All plants OK.");
-  }
-}
-
-void setup() {
     initDwenguino();
 
-    Serial.begin(9600);
-    //timer.setInterval(60000, minuteCounter);
-    // add all of the plants over here
+    Serial.println("Start");
+    
+    for(int i = 0; i < (DISPLAY_LENGTH+1); i++){
+        name[i] = NULL;
+    }
+
+    message = "Press OK";
 
     dwenguinoLCD.clear();
+    dwenguinoLCD.print("All OK.");
 
-    init_actuator();
-    init_ui();
+    Serial.flush();
     
-    noTone(BUZZER);
+    water_strip.begin();
+    water_strip.show();
+    notification_strip.begin();
+    notification_strip.show();
 
-    reset_click();
+    notification_update_time = millis();
 
-    // here we add the example
-    strncpy(plants[n_plants].latin_name, "Ficus Elastica Abidjan", 16);
-    strncpy(plants[n_plants].name, "Alayne", 16);
-    plants[n_plants].watering_period = 7;
-    plants[n_plants].water_amount = 3;
-    plants[n_plants].location = {0, 0};
-    //plants[n_plants].watering_time = 0;
-    n_plants++;
-
-    strncpy(plants[n_plants].latin_name, "Pachira Aquatica", 16);
-    strncpy(plants[n_plants].name, "Quaith", 16);
-    plants[n_plants].watering_period = 7;
-    plants[n_plants].water_amount = 1;
-    plants[n_plants].location = {0, 0};
-    //plants[n_plants].watering_time = 0;
-    n_plants++;
-
-    strncpy(plants[n_plants].latin_name, "Clusia Rosea Princess", 16);
-    strncpy(plants[n_plants].name, "Daemon", 16);
-    plants[n_plants].watering_period = 7;
-    plants[n_plants].water_amount = 1;
-    plants[n_plants].location = {0, 0};
-    //plants[n_plants].watering_time = 0;
-    n_plants++;
-
-    strncpy(plants[n_plants].latin_name, "Kentia Howea Forsteriana", 16);
-    strncpy(plants[n_plants].name, "Egg", 16);
-    plants[n_plants].watering_period = 3;
-    plants[n_plants].water_amount = 3;
-    plants[n_plants].location = {0, 0};
-    //plants[n_plants].watering_time = 0;
-    n_plants++;
-
+    buzzer_on = false;
+    plant_id = -1;
 }
 
-String summary_menu_options[] = {String(""), String("Compl. overview"), String("Back"), String("")};
-int n_summary_menu_option = 4;
 
 
-void loop() {
-  main_menu();
+void loop(){
+    if(Serial.available() > 0){
+        switch(message_read_status){
+            case -1:
+                idx = 0;
+                message_read_status = 0;
+                break;
+            case 0:
+                data_byte =  Serial.read();
+                if(data_byte > 0){
+                    read_char = (char) data_byte;
+                    if(read_char == ','){
+                        message_read_status++;
+                        plant_id = 0;
+                    } 
+                    else {
+                        name[idx] = (char) data_byte;
+                        idx++;
+                        idx = min(idx, DISPLAY_LENGTH); // prevent overflow
+                    }
+                }
+                break;
+            case 1:
+                data_byte =  Serial.read();
+                if(data_byte > 0){
+                    read_char = (char) data_byte;
+                    if(read_char == ','){
+                        message_read_status++;
+                    } else {
+                        plant_id = plant_id*10 + (read_char - '0');
+                    }
+                }
+                break;
+            case 2:
+                data_byte =  Serial.read();
+                if(data_byte > 0){
+                    read_char = (char) data_byte;
+                    if(read_char == ','){
+                        message_read_status++;
+                        water_amount = 0;
+                    } else {
+                        water_amount = water_amount*10 + (read_char - '0');
+                    }
+                }
+                break;
+            case 3:
+                data_byte =  Serial.read();
+                if(data_byte > 0){
+                    notification_type = (char) data_byte - '0';
+                    message_read_status++;
+                }
+                break;
+            case 4:
+                data_byte =  Serial.read();
+                if(data_byte > 0){
+                    read_char = (char) data_byte;
+                    if(read_char == '\n'){
+                        uint8_t color;
+                        // update display
+                        dwenguinoLCD.clear();
+                        dwenguinoLCD.print(name);
+                        dwenguinoLCD.setCursor(0, 2);
+                        dwenguinoLCD.print(message);
+                        
+
+                        // update LED strip
+                        for(int i = 0; i < N_PIXELS; i++){
+                            if(water_amount > 0){
+                                color = min(water_amount, 255);
+                            } else {
+                                color = 0;
+                            }
+                            water_strip.setPixelColor(i, 0, 0, color, 0);
+                            color -= 255;
+                        }
+                        water_strip.show();
+
+                        // notification style
+                        switch(notification_type){
+                            case 0:
+                                break;
+                            case 1:
+                                break;
+                            case 2:
+                                tone(BUZZER, 1000);
+                                break;
+                            default:
+                                break;
+                        }
+
+                        // reset message status
+                        message_read_status = -1;
+                    }
+                }
+            default:
+                message_read_status = -1;
+                break;
+        }
+    }
+    if(notification_type == 2){
+        if((millis() - notification_update_time) > 1000){
+            notification_update_time = millis();
+            if(buzzer_on){
+                noTone(BUZZER);
+                buzzer_on = false;
+            } else {
+                tone(BUZZER, 1000);
+                buzzer_on = true;
+            }
+        }
+    }
+    if(digitalRead(SW_C) == LOW){
+        dwenguinoLCD.clear();
+        dwenguinoLCD.print("Processing...");
+
+        notification_type = 0;
+
+        for(int i = 0; i < DISPLAY_LENGTH; i++){
+            name[i] = ' ';
+        }
+
+        noTone(BUZZER);
+
+        notification_strip.clear();
+        notification_strip.show();
+
+        // send feedback message
+        Serial.println(plant_id, DEC);
+        while(digitalRead(SW_C) == LOW);
+        delay(500);
+
+        dwenguinoLCD.clear();
+        dwenguinoLCD.print("All OK!");
+    }
 }
